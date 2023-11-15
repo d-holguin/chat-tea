@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    'rust-chat-client',
+    'rust-chat-server',
+]
+resolver = '2'
