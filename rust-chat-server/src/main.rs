@@ -2,13 +2,16 @@ use async_std::{
     io::BufReader,
     net::{TcpListener, TcpStream, ToSocketAddrs},
     prelude::*,
-    stream, task,
+    task,
 };
 use futures::{channel::mpsc, SinkExt};
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
 };
+
+use futures::{select, FutureExt};
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 type Sender<T> = mpsc::UnboundedSender<T>;
 type Receiver<T> = mpsc::UnboundedReceiver<T>;
@@ -35,6 +38,10 @@ enum Event {
         msg: String,
     },
 }
+
+#[derive(Debug)]
+enum Void {}
+
 fn main() {
     if let Err(e) = run() {
         eprintln!("{e:?}");
@@ -96,12 +103,24 @@ async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result
     Ok(())
 }
 async fn connection_writer_loop(
-    mut messages: Receiver<String>,
+    messages: &mut Receiver<String>,
     stream: Arc<TcpStream>,
+    shutdown: Receiver<Void>,
 ) -> Result<()> {
     let mut stream = &*stream;
-    while let Some(msg) = messages.next().await {
-        stream.write_all(msg.as_bytes()).await?;
+    let mut messages = messages.fuse();
+    let mut shutdown = shutdown.fuse();
+    loop {
+        select! {
+            msg = messages.next().fuse() => match msg {
+                Some(msg) => stream.write_all(msg.as_bytes()).await?,
+                None => break,
+            },
+            void = shutdown.next().fuse() => match void {
+                Some(void) => match void {},
+                None => break,
+            }
+        }
     }
     Ok(())
 }
