@@ -31,6 +31,7 @@ enum Event {
     NewPeer {
         name: String,
         stream: Arc<TcpStream>,
+        shutdown: Receiver<Void>,
     },
     Message {
         from: String,
@@ -69,17 +70,21 @@ async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result
     let stream = Arc::new(stream);
     let reader = BufReader::new(&*stream);
     let mut lines = reader.lines();
+
     let name = match lines.next().await {
-        None => Err("peer disconnected immediately")?,
+        None => return Err("peer disconnected immediately".into()),
         Some(line) => line?,
     };
+    let (_shutdown_sender, shutdown_receiver) = mpsc::unbounded::<Void>();
     broker
         .send(Event::NewPeer {
             name: name.clone(),
             stream: Arc::clone(&stream),
+            shutdown: shutdown_receiver,
         })
         .await
         .unwrap();
+
     while let Some(line) = lines.next().await {
         let line = line?;
         let (dest, msg) = match line.find(':') {
@@ -90,7 +95,8 @@ async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result
             .split(',')
             .map(|name| name.trim().to_string())
             .collect();
-        let msg: String = msg.to_string();
+        let msg: String = msg.trim().to_string();
+
         broker
             .send(Event::Message {
                 from: name.clone(),
@@ -100,6 +106,7 @@ async fn connection_loop(mut broker: Sender<Event>, stream: TcpStream) -> Result
             .await
             .unwrap();
     }
+
     Ok(())
 }
 async fn connection_writer_loop(
@@ -125,33 +132,57 @@ async fn connection_writer_loop(
     Ok(())
 }
 async fn broker_loop(mut events: Receiver<Event>) -> Result<()> {
-    let mut writers = Vec::new();
+    let (disconnect_sender, mut disconnect_receiver) =
+        mpsc::unbounded::<(String, Receiver<String>)>();
     let mut peers: HashMap<String, Sender<String>> = HashMap::new();
-    while let Some(event) = events.next().await {
+    loop {
+        let event = select! {
+            event = events.next().fuse() => match event {
+                None => break,
+                Some(event) => event,
+            },
+            disconnect = disconnect_receiver.next().fuse() => {
+                let(name, _pending_messages) = disconnect.unwrap();
+                assert!(peers.remove(&name).is_some());
+                continue;
+            },
+        };
+
         match event {
             Event::Message { from, to, msg } => {
                 for addr in to {
                     if let Some(peer) = peers.get_mut(&addr) {
                         let msg = format!("from {}: {}\n", from, msg);
-                        peer.send(msg).await?
+                        peer.send(msg).await.unwrap()
                     }
                 }
             }
-            Event::NewPeer { name, stream } => match peers.entry(name) {
+            Event::NewPeer {
+                name,
+                stream,
+                shutdown,
+            } => match peers.entry(name.clone()) {
                 Entry::Occupied(..) => (),
                 Entry::Vacant(entry) => {
-                    let (client_sender, client_receiver) = mpsc::unbounded();
+                    let (client_sender, mut client_receiver) = mpsc::unbounded();
                     entry.insert(client_sender);
-                    let handle =
-                        spawn_and_log_error(connection_writer_loop(client_receiver, stream));
-                    writers.push(handle);
+                    let mut disconnect_sender = disconnect_sender.clone();
+                    spawn_and_log_error(async move {
+                        let res =
+                            connection_writer_loop(&mut client_receiver, stream, shutdown).await;
+                        disconnect_sender
+                            .send((name, client_receiver))
+                            .await
+                            .unwrap();
+                        res
+                    });
                 }
             },
         }
     }
     drop(peers);
-    for writer in writers {
-        writer.await;
-    }
+    drop(disconnect_sender);
+    while let Some((_name, _pending_messages)) = disconnect_receiver.next().await {}
+
     Ok(())
 }
