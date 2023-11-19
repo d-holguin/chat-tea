@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    'chat-client',
-    'chat-server',
+    'server',
+    'client'
 ]
 resolver = '2'
