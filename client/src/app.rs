@@ -1,7 +1,8 @@
 use color_eyre::eyre::Result;
 use crossterm::event::KeyCode::Char;
+use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::Stylize;
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 
 use crate::Event;
@@ -30,18 +31,42 @@ fn update(app: &mut App, event: Event) {
     }
 }
 
-fn ui(f: &mut Frame<'_>, app: &App) {
-    let content = format!("Counter: {}\nFPS: {}", app.counter, app.fps_counter.fps);
-    f.render_widget(Paragraph::new(content).white().on_cyan(), f.size());
+fn ui(frame: &mut Frame<'_>, app: &App) {
+    let total_width = frame.size().width as usize;
+    let title = "Chatty";
+    let fps_text = format!("FPS: {}", app.fps_counter.fps);
+
+    let spacing = total_width.saturating_sub(title.len() + fps_text.len() + 2); // +2 for some padding
+    let full_title = format!("{0}{1: >2$}{3}", title, "", spacing, fps_text);
+
+    frame.render_widget(
+        Block::default().borders(Borders::ALL).title(full_title),
+        frame.size(),
+    );
+
+    // main layout 80/20
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+        .margin(2)
+        .split(frame.size());
+
+    // todo: chat content
+    let chat_content = format!("Counter: {}", app.counter);
+    frame.render_widget(Paragraph::new(chat_content), main_layout[0]);
+
+    // todo: user input
+    let user_input = String::from("User input here");
+    frame.render_widget(Paragraph::new(user_input), main_layout[1]);
 }
 
 pub async fn run() -> Result<()> {
     // ratatui terminal
-    let mut tui = crate::Tui::new(4.0, 30.0)?;
+    let mut tui = crate::Tui::new(3.0, 60.0)?;
 
     tui.enter()?;
 
-    let mut fps_counter = FpsCounter {
+    let fps_counter = FpsCounter {
         frame_count: 0,
         last_tick: std::time::Instant::now(),
         fps: 0,
