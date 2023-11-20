@@ -15,7 +15,9 @@ path = "src/lib.rs"
 
 
 [dependencies]
-tokio = { version = "1.16.1", features = ["full"] }
-crossterm = "0.27.0"
+color-eyre = "0.6.2"
+crossterm = { version = "0.27.0", features = ["event-stream"] }
 ratatui = "0.24.0"
-anyhow = "1.0.75"
+tokio = { version = "1.32.0", features = ["full"] }
+tokio-util = "0.7.9"
+futures = "0.3.28"
