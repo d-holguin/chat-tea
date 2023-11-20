@@ -1,14 +1,12 @@
 use color_eyre::eyre::Result;
 use crossterm::cursor;
-use crossterm::event::KeyCode::Char;
 use crossterm::{
     event::{KeyEvent, KeyEventKind, MouseEvent},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use futures::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
-use ratatui::widgets::Paragraph;
-use ratatui::Frame;
+
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
@@ -38,9 +36,7 @@ pub struct Tui {
 }
 
 impl Tui {
-    pub fn new() -> Result<Self> {
-        let tick_rate = 4.0;
-        let frame_rate = 60.0;
+    pub fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
         let terminal = ratatui::Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let task = tokio::spawn(async {});
@@ -116,69 +112,6 @@ impl Tui {
             }
         });
     }
-}
-
-// App state
-struct App {
-    counter: i64,
-    should_quit: bool,
-}
-
-fn update(app: &mut App, event: Event) {
-    if let Event::Key(key) = event {
-        match key.code {
-            Char('j') => app.counter += 1,
-            Char('k') => app.counter -= 1,
-            Char('q') => app.should_quit = true,
-            _ => {}
-        }
-    }
-}
-
-fn ui(f: &mut Frame<'_>, app: &App) {
-    f.render_widget(
-        Paragraph::new(format!("Counter: {}", app.counter)),
-        f.size(),
-    );
-}
-
-
-
-pub async fn run() -> Result<()> {
-    // ratatui terminal
-    let mut tui = Tui::new()?;
-
-    tui.enter()?;
-
-    // application state
-    let mut app = App {
-        counter: 0,
-        should_quit: false,
-    };
-
-    loop {
-        match tui.next().await {
-            Some(Event::Render) => {
-                // Handle the render event
-                tui.terminal.draw(|f| {
-                    ui(f, &app);
-                })?;
-            }
-            Some(Event::Quit) => {
-                // Handle the quit event
-                break;
-            }
-            Some(event) => {
-                // Handle other events
-                update(&mut app, event);
-            }
-            None => {}
-        }
-    }
-
-    tui.exit()?;
-
-    Ok(())
 }
 
 impl Drop for Tui {
