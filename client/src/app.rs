@@ -1,17 +1,23 @@
 use color_eyre::eyre::Result;
-use crossterm::event::KeyCode::Char;
-use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::Stylize;
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
-use ratatui::Frame;
+use crossterm::event::{
+    Event,
+    KeyCode::{self, Char},
+};
+use tui_input::{backend::crossterm::EventHandler, Input};
 
-use crate::Event;
+use crate::view;
 
 // App state
 pub struct App {
-    counter: i64,
-    should_quit: bool,
-    fps_counter: FpsCounter,
+    pub should_quit: bool,
+    pub fps_counter: FpsCounter,
+    pub input: Input,
+    pub input_mode: InputMode,
+}
+
+pub enum InputMode {
+    Normal,
+    Editing,
 }
 
 pub struct FpsCounter {
@@ -20,49 +26,32 @@ pub struct FpsCounter {
     pub fps: u64,
 }
 
-fn update(app: &mut App, event: Event) {
-    if let Event::Key(key) = event {
-        match key.code {
-            Char('j') => app.counter += 1,
-            Char('k') => app.counter -= 1,
-            Char('q') => app.should_quit = true,
-            _ => {}
+fn update(app: &mut App, event: crate::Event) {
+    if let crate::Event::Key(key) = event {
+        match app.input_mode {
+            InputMode::Normal => match key.code {
+                Char('q') => app.should_quit = true,
+                Char('e') => app.input_mode = InputMode::Editing,
+                _ => {}
+            },
+            InputMode::Editing => match key.code {
+                KeyCode::Enter => {
+                    app.input.reset();
+                }
+                KeyCode::Esc => {
+                    app.input_mode = InputMode::Normal;
+                }
+                _ => {
+                    app.input.handle_event(&Event::Key(key));
+                }
+            },
         }
     }
 }
 
-fn ui(frame: &mut Frame<'_>, app: &App) {
-    let total_width = frame.size().width as usize;
-    let title = "Chatty";
-    let fps_text = format!("FPS: {}", app.fps_counter.fps);
-
-    let spacing = total_width.saturating_sub(title.len() + fps_text.len() + 2); // +2 for some padding
-    let full_title = format!("{0}{1: >2$}{3}", title, "", spacing, fps_text);
-
-    frame.render_widget(
-        Block::default().borders(Borders::ALL).title(full_title),
-        frame.size(),
-    );
-
-    // main layout 80/20
-    let main_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
-        .margin(2)
-        .split(frame.size());
-
-    // todo: chat content
-    let chat_content = format!("Counter: {}", app.counter);
-    frame.render_widget(Paragraph::new(chat_content), main_layout[0]);
-
-    // todo: user input
-    let user_input = String::from("User input here");
-    frame.render_widget(Paragraph::new(user_input), main_layout[1]);
-}
-
 pub async fn run() -> Result<()> {
     // ratatui terminal
-    let mut tui = crate::Tui::new(3.0, 60.0)?;
+    let mut tui = crate::Tui::new(4.0, 144.0)?;
 
     tui.enter()?;
 
@@ -74,14 +63,15 @@ pub async fn run() -> Result<()> {
 
     // application state
     let mut app = App {
-        counter: 0,
+        input_mode: InputMode::Normal,
         should_quit: false,
         fps_counter,
+        input: Input::default(),
     };
 
     loop {
         match tui.next().await {
-            Some(Event::Render) => {
+            Some(crate::Event::Render) => {
                 app.fps_counter.frame_count += 1;
                 if app.fps_counter.last_tick.elapsed().as_secs() >= 1 {
                     app.fps_counter.fps = app.fps_counter.frame_count;
@@ -91,10 +81,10 @@ pub async fn run() -> Result<()> {
 
                 // Handle the render event
                 tui.terminal.draw(|f| {
-                    ui(f, &app);
+                    view(f, &app);
                 })?;
             }
-            Some(Event::Quit) => {
+            Some(crate::Event::Quit) => {
                 // Handle the quit event
                 break;
             }

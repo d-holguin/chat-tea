@@ -1,5 +1,5 @@
 use color_eyre::eyre::Result;
-use crossterm::cursor;
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::{
     event::{KeyEvent, KeyEventKind, MouseEvent},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
@@ -52,7 +52,7 @@ impl Tui {
 
     pub fn enter(&mut self) -> Result<()> {
         crossterm::terminal::enable_raw_mode()?;
-        crossterm::execute!(std::io::stderr(), EnterAlternateScreen, cursor::Hide)?;
+        crossterm::execute!(std::io::stderr(), EnterAlternateScreen, EnableMouseCapture)?;
         self.start();
         Ok(())
     }
@@ -60,8 +60,9 @@ impl Tui {
     pub fn exit(&mut self) -> Result<()> {
         if crossterm::terminal::is_raw_mode_enabled()? {
             self.terminal.flush()?;
-            crossterm::execute!(std::io::stderr(), LeaveAlternateScreen, cursor::Show)?;
+            crossterm::execute!(std::io::stderr(), LeaveAlternateScreen, DisableMouseCapture)?;
             crossterm::terminal::disable_raw_mode()?;
+            self.terminal.show_cursor()?;
         }
         Ok(())
     }
