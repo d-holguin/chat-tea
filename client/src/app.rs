@@ -1,11 +1,7 @@
 use color_eyre::eyre::Result;
-use crossterm::event::{
-    Event,
-    KeyCode::{self, Char},
-};
-use tui_input::{backend::crossterm::EventHandler, Input};
+use tui_input::Input;
 
-use crate::view;
+use crate::{update, view};
 
 // App state
 pub struct App {
@@ -26,32 +22,9 @@ pub struct FpsCounter {
     pub fps: u64,
 }
 
-fn update(app: &mut App, event: crate::Event) {
-    if let crate::Event::Key(key) = event {
-        match app.input_mode {
-            InputMode::Normal => match key.code {
-                Char('q') => app.should_quit = true,
-                Char('e') => app.input_mode = InputMode::Editing,
-                _ => {}
-            },
-            InputMode::Editing => match key.code {
-                KeyCode::Enter => {
-                    app.input.reset();
-                }
-                KeyCode::Esc => {
-                    app.input_mode = InputMode::Normal;
-                }
-                _ => {
-                    app.input.handle_event(&Event::Key(key));
-                }
-            },
-        }
-    }
-}
-
 pub async fn run() -> Result<()> {
     // ratatui terminal
-    let mut tui = crate::Tui::new(4.0, 144.0)?;
+    let mut tui = crate::Tui::new(4.0, 30.0)?;
 
     tui.enter()?;
 
