@@ -2,22 +2,24 @@ use crossterm::event::{
     Event,
     KeyCode::{self, Char},
 };
-use tui_input::{backend::crossterm::EventHandler, Input};
+use tui_input::backend::crossterm::EventHandler;
 
-use crate::{InputMode, App};
+use crate::{App, InputMode, TerminalEvent};
 
-
-
-pub fn update(app: &mut App, event: crate::Event) {
-    if let crate::Event::Key(key) = event {
-        match app.input_mode {
+pub fn update(app: &mut App, event: TerminalEvent) {
+    match event {
+        TerminalEvent::Key(key) => match app.input_mode {
             InputMode::Normal => match key.code {
-                Char('q') => app.should_quit = true,
+                Char('q') => app.event_tx.send(TerminalEvent::Quit).unwrap(),
                 Char('e') => app.input_mode = InputMode::Editing,
                 _ => {}
             },
             InputMode::Editing => match key.code {
                 KeyCode::Enter => {
+                    let message = app.input.to_string();
+                    app.event_tx
+                        .send(TerminalEvent::SendMessage(message))
+                        .unwrap();
                     app.input.reset();
                 }
                 KeyCode::Esc => {
@@ -27,6 +29,10 @@ pub fn update(app: &mut App, event: crate::Event) {
                     app.input.handle_event(&Event::Key(key));
                 }
             },
+        },
+        TerminalEvent::Network(message) => {
+            app.messages.push(message.message);
         }
+        _ => {}
     }
 }

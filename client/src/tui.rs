@@ -1,36 +1,39 @@
 use color_eyre::eyre::Result;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::{
-    event::{KeyEvent, KeyEventKind, MouseEvent},
+    event::{KeyEvent, KeyEventKind},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use futures::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
 
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::net::TcpStream;
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
 };
 
 #[derive(Clone, Debug)]
-pub enum Event {
+pub enum TerminalEvent {
     Quit,
     Error,
     Tick,
     Render,
-    FocusGained,
-    FocusLost,
-    Paste(String),
     Key(KeyEvent),
-    Mouse(MouseEvent),
-    Resize(u16, u16),
+    Network(NetworkData),
+    SendMessage(String),
+}
+#[derive(Clone, Debug)]
+pub struct NetworkData {
+    pub message: String,
 }
 
 pub struct Tui {
     pub terminal: ratatui::Terminal<CrosstermBackend<std::io::Stderr>>,
     pub task: JoinHandle<()>,
-    pub event_rx: UnboundedReceiver<Event>,
-    pub event_tx: UnboundedSender<Event>,
+    pub event_rx: UnboundedReceiver<TerminalEvent>,
+    pub event_tx: UnboundedSender<TerminalEvent>,
     pub frame_rate: f64,
     pub tick_rate: f64,
 }
@@ -50,6 +53,15 @@ impl Tui {
         })
     }
 
+    pub async fn connect_to_server(&mut self, addr: &str) -> Result<()> {
+        let stream = TcpStream::connect(addr).await?;
+        let event_tx = self.event_tx.clone();
+        tokio::spawn(async move {
+            handle_connection(stream, event_tx).await;
+        });
+        Ok(())
+    }
+
     pub fn enter(&mut self) -> Result<()> {
         crossterm::terminal::enable_raw_mode()?;
         crossterm::execute!(std::io::stderr(), EnterAlternateScreen, EnableMouseCapture)?;
@@ -67,14 +79,14 @@ impl Tui {
         Ok(())
     }
 
-    pub async fn next(&mut self) -> Option<Event> {
+    pub async fn next(&mut self) -> Option<TerminalEvent> {
         self.event_rx.recv().await
     }
 
     pub fn start(&mut self) {
         let tick_delay = std::time::Duration::from_secs_f64(1.0 / self.tick_rate);
         let render_delay = std::time::Duration::from_secs_f64(1.0 / self.frame_rate);
-        let _event_tx = self.event_tx.clone();
+        let event_tx = self.event_tx.clone();
         self.task = tokio::spawn(async move {
             let mut reader = crossterm::event::EventStream::new();
             let mut tick_interval = tokio::time::interval(tick_delay);
@@ -90,7 +102,7 @@ impl Tui {
                         match evt {
                           crossterm::event::Event::Key(key) => {
                             if key.kind == KeyEventKind::Press {
-                              _event_tx.send(Event::Key(key)).unwrap();
+                              event_tx.send(TerminalEvent::Key(key)).unwrap();
                             }
                           },
                           _ =>{}
@@ -98,16 +110,16 @@ impl Tui {
                         }
                       }
                       Some(Err(_)) => {
-                        _event_tx.send(Event::Error).unwrap();
+                        event_tx.send(TerminalEvent::Error).unwrap();
                       }
                       None => {},
                     }
                   },
                   _ = tick_delay => {
-                      _event_tx.send(Event::Tick).unwrap();
+                      event_tx.send(TerminalEvent::Tick).unwrap();
                   },
                   _ = render_delay => {
-                      _event_tx.send(Event::Render).unwrap();
+                      event_tx.send(TerminalEvent::Render).unwrap();
                   },
                 }
             }
@@ -118,5 +130,33 @@ impl Tui {
 impl Drop for Tui {
     fn drop(&mut self) {
         self.exit().unwrap();
+    }
+}
+
+async fn handle_connection(mut stream: TcpStream, event_tx: UnboundedSender<TerminalEvent>) {
+    let (reader, mut writer) = stream.split();
+    let mut reader = BufReader::new(reader);
+    let mut line = String::new();
+
+    loop {
+        tokio::select! {
+            result = reader.read_line(&mut line) => {
+                match result {
+                    Ok(0) => break, // Connection was closed
+                    Ok(_) => {
+                        event_tx.send(TerminalEvent::Network(NetworkData { message: line.clone() })).unwrap();
+                        line.clear();
+                    }
+                    Err(_) => {
+                        event_tx.send(TerminalEvent::Error).unwrap();
+                        break;
+                    }
+                }
+
+            }
+      
+            // todo use writer to send messages
+
+        }
     }
 }
