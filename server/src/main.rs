@@ -1,5 +1,5 @@
 use tokio::{
-    io::{AsyncBufReadExt, BufReader, AsyncWriteExt as _},
+    io::{AsyncBufReadExt, AsyncWriteExt as _, BufReader},
     net::TcpListener,
     sync::broadcast,
 };
@@ -7,9 +7,8 @@ use tokio::{
 #[tokio::main]
 async fn main() {
     let listener = TcpListener::bind("localhost:8080").await.unwrap();
-
     let (tx, _rx) = broadcast::channel(10);
-
+    println!("Starting server");
     loop {
         let (mut socket, addr) = listener.accept().await.unwrap();
         let tx = tx.clone();

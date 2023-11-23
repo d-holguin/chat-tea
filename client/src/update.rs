@@ -6,8 +6,8 @@ use tui_input::backend::crossterm::EventHandler;
 
 use crate::{App, InputMode, TerminalEvent};
 
-pub fn update(app: &mut App, event: TerminalEvent) {
-    match event {
+pub fn update(app: &mut App, terminal_event: TerminalEvent) {
+    match terminal_event {
         TerminalEvent::Key(key) => match app.input_mode {
             InputMode::Normal => match key.code {
                 Char('q') => app.event_tx.send(TerminalEvent::Quit).unwrap(),
@@ -16,10 +16,8 @@ pub fn update(app: &mut App, event: TerminalEvent) {
             },
             InputMode::Editing => match key.code {
                 KeyCode::Enter => {
-                    let message = app.input.to_string();
-                    app.event_tx
-                        .send(TerminalEvent::SendMessage(message))
-                        .unwrap();
+                    let msg = app.input.value().to_string();
+                    app.message_tx.send(msg).unwrap();
                     app.input.reset();
                 }
                 KeyCode::Esc => {
@@ -30,9 +28,6 @@ pub fn update(app: &mut App, event: TerminalEvent) {
                 }
             },
         },
-        TerminalEvent::Network(message) => {
-            app.messages.push(message.message);
-        }
         _ => {}
     }
 }

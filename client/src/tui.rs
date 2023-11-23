@@ -7,8 +7,6 @@ use crossterm::{
 use futures::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::net::TcpStream;
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
@@ -21,12 +19,6 @@ pub enum TerminalEvent {
     Tick,
     Render,
     Key(KeyEvent),
-    Network(NetworkData),
-    SendMessage(String),
-}
-#[derive(Clone, Debug)]
-pub struct NetworkData {
-    pub message: String,
 }
 
 pub struct Tui {
@@ -51,15 +43,6 @@ impl Tui {
             frame_rate,
             tick_rate,
         })
-    }
-
-    pub async fn connect_to_server(&mut self, addr: &str) -> Result<()> {
-        let stream = TcpStream::connect(addr).await?;
-        let event_tx = self.event_tx.clone();
-        tokio::spawn(async move {
-            handle_connection(stream, event_tx).await;
-        });
-        Ok(())
     }
 
     pub fn enter(&mut self) -> Result<()> {
@@ -130,33 +113,5 @@ impl Tui {
 impl Drop for Tui {
     fn drop(&mut self) {
         self.exit().unwrap();
-    }
-}
-
-async fn handle_connection(mut stream: TcpStream, event_tx: UnboundedSender<TerminalEvent>) {
-    let (reader, mut writer) = stream.split();
-    let mut reader = BufReader::new(reader);
-    let mut line = String::new();
-
-    loop {
-        tokio::select! {
-            result = reader.read_line(&mut line) => {
-                match result {
-                    Ok(0) => break, // Connection was closed
-                    Ok(_) => {
-                        event_tx.send(TerminalEvent::Network(NetworkData { message: line.clone() })).unwrap();
-                        line.clear();
-                    }
-                    Err(_) => {
-                        event_tx.send(TerminalEvent::Error).unwrap();
-                        break;
-                    }
-                }
-
-            }
-      
-            // todo use writer to send messages
-
-        }
     }
 }
