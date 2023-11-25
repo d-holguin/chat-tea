@@ -12,7 +12,7 @@ pub struct NetworkManager {
 }
 
 impl NetworkManager {
-    pub async fn connect_to_server(&mut self, addr: &str) -> Result<Self> {
+    pub async fn connect_to_server(addr: &str) -> Result<Self> {
         let stream = TcpStream::connect(addr).await?;
 
         let (incoming_msg_tx, incoming_msg_rx) = mpsc::unbounded_channel();
@@ -64,11 +64,14 @@ impl NetworkManager {
             }
         }
     }
-    pub async fn send_message(&self, message: String) -> Result<()> {
-        self.sending_msg_tx.send(message).map_err(|e| e.into())
+    pub fn send_message(&self, message: String) {
+        let sender = self.sending_msg_tx.clone();
+        tokio::spawn(async move {
+            let _ = sender.send(message);
+        });
     }
 
-    pub fn get_incoming_messages(&self) -> &UnboundedReceiver<String> {
-        &self.incoming_msg_rx
+    pub fn get_incoming_messages(&mut self) -> &mut UnboundedReceiver<String> {
+        &mut self.incoming_msg_rx
     }
 }
