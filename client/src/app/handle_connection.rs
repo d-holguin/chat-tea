@@ -6,7 +6,7 @@ use tokio::{
 
 pub async fn manage_tcp_stream(
     mut stream: TcpStream,
-    mut message_rx: UnboundedReceiver<String>,
+    mut sending_message_rx: UnboundedReceiver<String>,
     incoming_msg_tx: UnboundedSender<String>,
 ) {
     let (reader, mut writer) = stream.split();
@@ -27,7 +27,7 @@ pub async fn manage_tcp_stream(
                     }
                 }
             },
-            message = message_rx.recv() => {
+            message = sending_message_rx.recv() => {
                 if let Some(msg) = message {
                     let msg = format!("{msg}\n");
                     writer.write_all(msg.as_bytes()).await.unwrap();

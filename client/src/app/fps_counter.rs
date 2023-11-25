@@ -1,6 +1,6 @@
 pub struct FpsCounter {
-    pub frame_count: u64,
-    pub last_tick: std::time::Instant,
+    frame_count: u64,
+    last_tick: std::time::Instant,
     pub fps: u64,
 }
 
