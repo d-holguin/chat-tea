@@ -5,7 +5,7 @@ use tokio::{
 };
 use tui_input::Input;
 
-use crate::{update, view, FpsCounter, TerminalEvent, Tui};
+use crate::{update, view, FpsCounter, Message, Tui};
 
 #[derive(PartialEq, Eq)]
 pub enum InputMode {
@@ -14,7 +14,7 @@ pub enum InputMode {
 }
 // App state
 pub struct App {
-    pub tui_event_tx: tokio::sync::mpsc::UnboundedSender<TerminalEvent>,
+    pub tui_event_tx: tokio::sync::mpsc::UnboundedSender<Message>,
     pub fps_counter: FpsCounter,
     pub input: Input,
     pub input_mode: InputMode,
@@ -59,9 +59,9 @@ impl App {
         let mut should_exit = false;
         loop {
             tokio::select! {
-                Some(terminal_event) = tui.next() => {
-                    match terminal_event {
-                        TerminalEvent::Render => {
+                Some(message) = tui.next() => {
+                    match message {
+                        Message::Render => {
                             // Update FPS counter
                             self.fps_counter.tick();
                             // Handle the render event
@@ -69,16 +69,17 @@ impl App {
                                 view(f, &self);
                             })?;
                         },
-                        TerminalEvent::Quit => {
+                        Message::Quit => {
                             should_exit = true;
                         },
-                        event => {
-                            update(&mut self, event);
+                        message => {
+                            update(&mut self, message);
                         }
                     }
                 },
                 Some(msg) = incoming_msg_rx.recv() => {
-                    self.messages.push(msg);
+                    update(&mut self, Message::ReceivedNetworkMessage(msg));
+                    //self.messages.push(msg);
                 },
             }
             if should_exit {

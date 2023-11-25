@@ -4,13 +4,13 @@ use crossterm::event::{
 };
 use tui_input::backend::crossterm::EventHandler;
 
-use crate::{App, InputMode, TerminalEvent};
+use crate::{App, InputMode, Message};
 
-pub fn update(app: &mut App, terminal_event: TerminalEvent) {
-    match terminal_event {
-        TerminalEvent::Key(key) => match app.input_mode {
+pub fn update(app: &mut App, message: Message) {
+    match message {
+        Message::Key(key) => match app.input_mode {
             InputMode::Normal => match key.code {
-                Char('q') => app.tui_event_tx.send(TerminalEvent::Quit).unwrap(),
+                Char('q') => app.tui_event_tx.send(Message::Quit).unwrap(),
                 Char('e') => app.input_mode = InputMode::Editing,
                 _ => {}
             },
@@ -28,6 +28,9 @@ pub fn update(app: &mut App, terminal_event: TerminalEvent) {
                 }
             },
         },
+        Message::ReceivedNetworkMessage(msg) => {
+            app.messages.push(msg);
+        }
         _ => {}
     }
 }
