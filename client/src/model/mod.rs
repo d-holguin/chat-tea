@@ -1,7 +1,7 @@
-pub mod app;
-pub use app::run;
-pub use app::App;
-pub use app::InputMode;
+pub mod model;
+pub use model::run;
+pub use model::InputMode;
+pub use model::Model;
 
 pub mod fps_counter;
 pub use fps_counter::FpsCounter;

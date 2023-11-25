@@ -13,19 +13,21 @@ use tokio::{
 };
 
 #[derive(Clone, Debug)]
-pub enum TerminalEvent {
+pub enum Message {
     Quit,
     Error,
     Tick,
     Render,
     Key(KeyEvent),
+    ReceivedNetworkMessage(String),
+    SendNetworkMessage(String),
 }
 
 pub struct Tui {
     pub terminal: ratatui::Terminal<CrosstermBackend<std::io::Stderr>>,
     pub task: JoinHandle<()>,
-    pub event_rx: UnboundedReceiver<TerminalEvent>,
-    pub event_tx: UnboundedSender<TerminalEvent>,
+    pub event_rx: UnboundedReceiver<Message>,
+    pub event_tx: UnboundedSender<Message>,
     pub frame_rate: f64,
     pub tick_rate: f64,
 }
@@ -62,7 +64,7 @@ impl Tui {
         Ok(())
     }
 
-    pub async fn next(&mut self) -> Option<TerminalEvent> {
+    pub async fn next(&mut self) -> Option<Message> {
         self.event_rx.recv().await
     }
 
@@ -85,7 +87,7 @@ impl Tui {
                         match evt {
                           crossterm::event::Event::Key(key) => {
                             if key.kind == KeyEventKind::Press {
-                              event_tx.send(TerminalEvent::Key(key)).unwrap();
+                              event_tx.send(Message::Key(key)).unwrap();
                             }
                           },
                           _ =>{}
@@ -93,16 +95,16 @@ impl Tui {
                         }
                       }
                       Some(Err(_)) => {
-                        event_tx.send(TerminalEvent::Error).unwrap();
+                        event_tx.send(Message::Error).unwrap();
                       }
                       None => {},
                     }
                   },
                   _ = tick_delay => {
-                      event_tx.send(TerminalEvent::Tick).unwrap();
+                      event_tx.send(Message::Tick).unwrap();
                   },
                   _ = render_delay => {
-                      event_tx.send(TerminalEvent::Render).unwrap();
+                      event_tx.send(Message::Render).unwrap();
                   },
                 }
             }

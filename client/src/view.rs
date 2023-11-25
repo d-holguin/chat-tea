@@ -4,9 +4,9 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 use ratatui::Frame;
 
-use crate::{App, InputMode};
+use crate::{InputMode, Model};
 
-pub fn view(frame: &mut Frame<'_>, app: &App) {
+pub fn view(frame: &mut Frame<'_>, app: &Model) {
     // Main layout: chat content and bottom bar
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
