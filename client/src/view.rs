@@ -26,7 +26,7 @@ pub fn view(frame: &mut Frame<'_>, app: &App) {
         .messages
         .iter()
         .map(|m| {
-            let content = vec![Line::from(Span::raw(format!("{}", m)))];
+            let content = vec![Line::from(Span::raw(m.to_string()))];
             ListItem::new(content)
         })
         .collect();

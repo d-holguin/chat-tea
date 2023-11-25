@@ -1,5 +1,5 @@
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt as _, BufReader},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
     sync::broadcast,
 };
