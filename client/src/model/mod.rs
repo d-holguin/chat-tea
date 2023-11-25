@@ -1,5 +1,4 @@
 pub mod model;
-pub use model::run;
 pub use model::InputMode;
 pub use model::Model;
 

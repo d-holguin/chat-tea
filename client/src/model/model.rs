@@ -67,11 +67,3 @@ impl Model {
     }
 }
 
-pub async fn run() -> Result<()> {
-    let tui = crate::Tui::new(4.0, 30.0)?;
-    let network_manager = NetworkManager::connect_to_server("localhost:8080").await?;
-    let app = Model::new(&tui, network_manager);
-
-    app.start(tui).await?;
-    Ok(())
-}
