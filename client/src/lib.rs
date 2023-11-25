@@ -9,3 +9,6 @@ pub use view::*;
 
 pub mod update;
 pub use update::*;
+
+pub mod network;
+pub use network::*;

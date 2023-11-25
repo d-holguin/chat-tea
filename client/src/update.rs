@@ -34,7 +34,7 @@ pub fn update(app: &mut Model, message: Message) {
             app.messages.push(msg);
         }
         Message::SendNetworkMessage(msg) => {
-            app.sending_network_msg_tx.send(msg).unwrap();
+            app.network_manager.send_message(msg);
         }
         _ => {}
     }
