@@ -1,6 +1,6 @@
 use client::{Model, NetworkManager, Tui, TuiLogLayer};
 use color_eyre::Result;
-use tracing_subscriber::{fmt, layer::SubscriberExt, Registry};
+use tracing_subscriber::{layer::SubscriberExt, Registry};
 
 #[tokio::main]
 async fn main() {

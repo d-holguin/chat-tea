@@ -99,7 +99,7 @@ impl Tui {
 
                             }
                           }
-                          Some(Err(e)) => {
+                          Some(Err(_e)) => {
                             if let Err(e) = event_tx.send(Message::Error) {
                                 error!("Failed to send error event: {}", e);
                             }
