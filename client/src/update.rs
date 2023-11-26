@@ -4,20 +4,26 @@ use crossterm::event::{
 };
 use tui_input::backend::crossterm::EventHandler;
 
-use crate::{InputMode, Message, Model};
+use crate::{model::model::ActiveTab, InputMode, Message, Model};
 
 pub fn update(app: &mut Model, message: Message) {
     match message {
         Message::Key(key) => match app.input_mode {
             InputMode::Normal => match key.code {
-                Char('q') => app.tui_message_tx.send(Message::Quit).unwrap(),
+                Char('q') => app.message_tx.send(Message::Quit).unwrap(),
                 Char('e') => app.input_mode = InputMode::Editing,
+                KeyCode::Tab => {
+                    app.active_tab = match app.active_tab {
+                        ActiveTab::Chat => ActiveTab::Logs,
+                        ActiveTab::Logs => ActiveTab::Chat,
+                    }
+                }
                 _ => {}
             },
             InputMode::Editing => match key.code {
                 KeyCode::Enter => {
                     let msg = app.input.value().to_string();
-                    app.tui_message_tx
+                    app.message_tx
                         .send(Message::SendNetworkMessage(msg))
                         .unwrap();
                     app.input.reset();
