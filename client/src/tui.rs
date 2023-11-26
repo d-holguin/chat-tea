@@ -27,7 +27,7 @@ pub enum Message {
 }
 
 pub struct Tui {
-    pub terminal: ratatui::Terminal<CrosstermBackend<std::io::Stderr>>,
+    pub terminal: ratatui::Terminal<CrosstermBackend<std::io::Stdout>>,
     pub task: JoinHandle<()>,
     pub event_rx: UnboundedReceiver<Message>,
     pub event_tx: UnboundedSender<Message>,
@@ -37,7 +37,7 @@ pub struct Tui {
 
 impl Tui {
     pub fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
-        let terminal = ratatui::Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
+        let terminal = ratatui::Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let task = tokio::spawn(async {});
         Ok(Self {
@@ -52,7 +52,7 @@ impl Tui {
 
     pub fn enter(&mut self) -> Result<()> {
         crossterm::terminal::enable_raw_mode()?;
-        crossterm::execute!(std::io::stderr(), EnterAlternateScreen, EnableMouseCapture)?;
+        crossterm::execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
         self.start();
         Ok(())
     }
@@ -60,7 +60,7 @@ impl Tui {
     pub fn exit(&mut self) -> Result<()> {
         if crossterm::terminal::is_raw_mode_enabled()? {
             self.terminal.flush()?;
-            crossterm::execute!(std::io::stderr(), LeaveAlternateScreen, DisableMouseCapture)?;
+            crossterm::execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
             crossterm::terminal::disable_raw_mode()?;
             self.terminal.show_cursor()?;
         }

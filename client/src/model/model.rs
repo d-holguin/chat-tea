@@ -1,5 +1,5 @@
 use color_eyre::eyre::Result;
-use ratatui::{widgets::ListItem};
+use ratatui::widgets::ListItem;
 use tui_input::Input;
 
 use crate::{update, view, FpsCounter, Message, NetworkManager, Tui};
