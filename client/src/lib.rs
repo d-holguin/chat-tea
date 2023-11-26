@@ -12,3 +12,6 @@ pub use update::*;
 
 pub mod network;
 pub use network::*;
+
+pub mod logging;
+pub use logging::*;

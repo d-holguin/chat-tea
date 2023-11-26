@@ -7,31 +7,77 @@ use ratatui::Frame;
 use crate::model::model::ActiveTab;
 use crate::{InputMode, Model};
 
-pub fn view(frame: &mut Frame<'_>, app: &Model) {
+pub fn view(frame: &mut Frame<'_>, model: &Model) {
     // Tabs
     let titles = vec!["Chat", "Logs"];
 
     let tabs = Tabs::new(titles)
-        .select(app.active_tab.get_idx())
+        .select(model.active_tab.get_idx())
         .highlight_style(
             Style::default()
                 .add_modifier(Modifier::BOLD)
                 .fg(Color::Green),
         );
 
-    // Main layout with space for tabs at the top
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(5), Constraint::Percentage(95)])
+        .constraints([
+            Constraint::Min(1),          // tabs
+            Constraint::Percentage(100), // main content
+            Constraint::Min(1),          // bottom bar keybindings, FPS counter, etc.
+        ])
         .split(frame.size());
 
     // Render the tabs
     frame.render_widget(tabs, main_layout[0]);
 
-    match app.active_tab {
-        ActiveTab::Chat => render_chat_view(frame, app, main_layout[1]),
-        ActiveTab::Logs => render_logs_view(frame, app, main_layout[1]),
+    match model.active_tab {
+        ActiveTab::Chat => render_chat_view(frame, model, main_layout[1]),
+        ActiveTab::Logs => render_logs_view(frame, model, main_layout[1]),
     }
+
+    // Bottom bar layout for keybindings and FPS counter
+    let bottom_bar_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(main_layout[2]);
+
+    // Keybindings
+    let keybindings = match model.active_tab {
+        ActiveTab::Chat => match model.input_mode {
+            InputMode::Normal => "q: quit | enter: edit | tab: logs",
+            InputMode::Editing => "q: quit | esc: stop editing | tab: logs",
+        },
+        ActiveTab::Logs => "q: quit | tab: chat",
+    };
+
+    frame.render_widget(
+        Paragraph::new(keybindings)
+            .alignment(Alignment::Left)
+            .cyan()
+            .bold(),
+        bottom_bar_layout[0],
+    );
+
+    // FPS counter
+    frame.render_widget(
+        Paragraph::new(format!("FPS: {}", model.fps_counter.fps))
+            .alignment(Alignment::Left)
+            .blue(),
+        bottom_bar_layout[1],
+    );
+
+    // Mode indicator
+    let mode_text = match model.input_mode {
+        InputMode::Normal => "Normal",
+        InputMode::Editing => "Editing",
+    };
+    frame.render_widget(
+        Paragraph::new(mode_text)
+            .alignment(Alignment::Right)
+            .style(Style::default().add_modifier(Modifier::BOLD)),
+        bottom_bar_layout[1],
+    );
 }
 
 fn render_chat_view(frame: &mut Frame<'_>, app: &Model, area: Rect) {
@@ -39,9 +85,8 @@ fn render_chat_view(frame: &mut Frame<'_>, app: &Model, area: Rect) {
     let chat_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(10),   // chat content
-            Constraint::Length(3), // user input
-            Constraint::Length(1), // bottom bar with keybindings and FPS counter
+            Constraint::Percentage(100), // chat content
+            Constraint::Min(3),          // user input
         ])
         .split(area);
 
@@ -92,57 +137,10 @@ fn render_chat_view(frame: &mut Frame<'_>, app: &Model, area: Rect) {
             inner_input_area.y,
         );
     }
-
-    // Bottom bar layout for keybindings and FPS counter
-    let bottom_bar_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(chat_layout[2]);
-
-    // Keybindings
-    let tab_keybindings = match app.active_tab {
-        ActiveTab::Chat => "tab: switch to logs",
-        ActiveTab::Logs => "tab: switch to chat",
-    };
-    let keybindings = match app.input_mode {
-        InputMode::Normal => format!("q: quit | e: edit | {tab_keybindings}"),
-        InputMode::Editing => format!("q: quit | esc: stop editing | {tab_keybindings}"),
-    };
-    frame.render_widget(
-        Paragraph::new(keybindings)
-            .alignment(Alignment::Left)
-            .cyan()
-            .bold(),
-        bottom_bar_layout[0],
-    );
-
-    // FPS counter
-    frame.render_widget(
-        Paragraph::new(format!("FPS: {}", app.fps_counter.fps))
-            .alignment(Alignment::Left)
-            .blue(),
-        bottom_bar_layout[1],
-    );
-
-    // Mode indicator
-    let mode_text = match app.input_mode {
-        InputMode::Normal => "Normal",
-        InputMode::Editing => "Editing",
-    };
-    frame.render_widget(
-        Paragraph::new(mode_text)
-            .alignment(Alignment::Right)
-            .style(Style::default().add_modifier(Modifier::BOLD)),
-        bottom_bar_layout[1],
-    );
 }
 
-fn render_logs_view(frame: &mut Frame<'_>, app: &Model, area: Rect) {
-    frame.render_widget(
-        Paragraph::new("Logs")
-            .alignment(Alignment::Left)
-            .bold()
-            .style(Style::default().fg(Color::Green)),
-        area,
-    );
+fn render_logs_view(frame: &mut Frame<'_>, model: &Model, area: Rect) {
+    let logs = List::new(model.logs.clone()).block(Block::default().borders(Borders::ALL));
+
+    frame.render_widget(logs, area);
 }

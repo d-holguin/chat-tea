@@ -7,10 +7,12 @@ use crossterm::{
 use futures::{FutureExt, StreamExt};
 use ratatui::backend::CrosstermBackend;
 
+use ratatui::widgets::ListItem;
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
 };
+use tracing::error;
 
 #[derive(Clone, Debug)]
 pub enum Message {
@@ -21,6 +23,7 @@ pub enum Message {
     Key(KeyEvent),
     ReceivedNetworkMessage(String),
     SendNetworkMessage(String),
+    Log(ListItem<'static>),
 }
 
 pub struct Tui {
@@ -81,31 +84,39 @@ impl Tui {
                 let render_delay = render_interval.tick();
                 let crossterm_event = reader.next().fuse();
                 tokio::select! {
-                  maybe_event = crossterm_event => {
-                    match maybe_event {
-                      Some(Ok(evt)) => {
-                        match evt {
-                          crossterm::event::Event::Key(key) => {
-                            if key.kind == KeyEventKind::Press {
-                              event_tx.send(Message::Key(key)).unwrap();
-                            }
-                          },
-                          _ =>{}
+                      maybe_event = crossterm_event => {
+                        match maybe_event {
+                          Some(Ok(evt)) => {
+                            match evt {
+                              crossterm::event::Event::Key(key) => {
+                                if key.kind == KeyEventKind::Press {
+                                    if let Err(e) = event_tx.send(Message::Key(key)) {
+                                        error!("Failed to send key event: {}", e);
+                                    }
+                                }
+                              },
+                              _ =>{}
 
+                            }
+                          }
+                          Some(Err(e)) => {
+                            if let Err(e) = event_tx.send(Message::Error) {
+                                error!("Failed to send error event: {}", e);
+                            }
+                          }
+                          None => {},
                         }
+                      },
+                      _ = tick_delay => {
+                        if let Err(e) = event_tx.send(Message::Tick){
+                            error!("Failed to send tick event: {}", e);
+                        }
+                      },
+                      _ = render_delay => {
+                        if let Err(e) = event_tx.send(Message::Render){
+                            error!("Failed to send render event: {}", e);
                       }
-                      Some(Err(_)) => {
-                        event_tx.send(Message::Error).unwrap();
-                      }
-                      None => {},
                     }
-                  },
-                  _ = tick_delay => {
-                      event_tx.send(Message::Tick).unwrap();
-                  },
-                  _ = render_delay => {
-                      event_tx.send(Message::Render).unwrap();
-                  },
                 }
             }
         });
@@ -114,6 +125,6 @@ impl Tui {
 
 impl Drop for Tui {
     fn drop(&mut self) {
-        self.exit().unwrap();
+        self.exit().expect("Failed to exit terminal");
     }
 }

@@ -1,4 +1,5 @@
 use color_eyre::eyre::Result;
+use ratatui::{text::Line, widgets::ListItem};
 use tui_input::Input;
 
 use crate::{update, view, FpsCounter, Message, NetworkManager, Tui};
@@ -24,7 +25,7 @@ impl ActiveTab {
 }
 
 // Model state
-pub struct Model {
+pub struct Model<'a> {
     pub message_tx: tokio::sync::mpsc::UnboundedSender<Message>,
     pub fps_counter: FpsCounter,
     pub input: Input,
@@ -32,9 +33,10 @@ pub struct Model {
     pub messages: Vec<String>,
     pub network_manager: NetworkManager,
     pub active_tab: ActiveTab,
+    pub logs: Vec<ListItem<'a>>,
 }
 
-impl Model {
+impl <'a>Model<'a> {
     pub fn new(tui: &Tui, network_manager: NetworkManager) -> Self {
         Self {
             message_tx: tui.event_tx.clone(),
@@ -44,6 +46,7 @@ impl Model {
             messages: Vec::new(),
             network_manager,
             active_tab: ActiveTab::Chat,
+            logs: Vec::new(),
         }
     }
 

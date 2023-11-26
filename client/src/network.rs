@@ -4,6 +4,7 @@ use tokio::{
     net::TcpStream,
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
 };
+use tracing::{error, info};
 
 pub struct NetworkManager {
     _incoming_msg_tx: UnboundedSender<String>,
@@ -23,7 +24,7 @@ impl NetworkManager {
             if let Err(e) =
                 Self::read_and_write_stream(stream, incoming_msg_tx_clone, sending_msg_rx).await
             {
-                eprintln!("Error: {}", e);
+                error!("Failed to read and write stream: {}", e);
             }
         });
 
@@ -49,7 +50,10 @@ impl NetworkManager {
                     match result {
                         Ok(0) => {}
                         Ok(_) => {
-                            incoming_msg_tx.send(line.clone()).unwrap();
+                            info!("Received message: {}", line);
+                            if let Err(e) = incoming_msg_tx.send(line.clone()){
+                                error!("Failed to send incoming message: {}", e);
+                            }
                             line.clear();
                         }
                         Err(_) => {}
@@ -57,8 +61,11 @@ impl NetworkManager {
                 },
                 message = sending_msg_rx.recv() => {
                     if let Some(msg) = message {
+                        info!("Sending message: {}", msg);
                         let msg = format!("{msg}\n");
-                        writer.write_all(msg.as_bytes()).await.unwrap();
+                        if let Err(e) = writer.write_all(msg.as_bytes()).await {
+                            error!("Failed to send message: {}", e);
+                        }
                     }
                 },
             }

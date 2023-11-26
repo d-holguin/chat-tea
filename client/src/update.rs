@@ -2,6 +2,7 @@ use crossterm::event::{
     Event,
     KeyCode::{self, Char},
 };
+use tracing::error;
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::{model::model::ActiveTab, InputMode, Message, Model};
@@ -10,8 +11,16 @@ pub fn update(app: &mut Model, message: Message) {
     match message {
         Message::Key(key) => match app.input_mode {
             InputMode::Normal => match key.code {
-                Char('q') => app.message_tx.send(Message::Quit).unwrap(),
-                Char('e') => app.input_mode = InputMode::Editing,
+                Char('q') => {
+                    if let Err(e) = app.message_tx.send(Message::Quit) {
+                        error!("Failed to send quit message: {}", e)
+                    }
+                }
+                KeyCode::Enter => {
+                    if app.active_tab == ActiveTab::Chat {
+                        app.input_mode = InputMode::Editing;
+                    }
+                }
                 KeyCode::Tab => {
                     app.active_tab = match app.active_tab {
                         ActiveTab::Chat => ActiveTab::Logs,
@@ -23,9 +32,10 @@ pub fn update(app: &mut Model, message: Message) {
             InputMode::Editing => match key.code {
                 KeyCode::Enter => {
                     let msg = app.input.value().to_string();
-                    app.message_tx
-                        .send(Message::SendNetworkMessage(msg))
-                        .unwrap();
+                    if let Err(e) = app.message_tx.send(Message::SendNetworkMessage(msg)) {
+                        error!("Failed to send message: {}", e)
+                    }
+
                     app.input.reset();
                 }
                 KeyCode::Esc => {
@@ -41,6 +51,9 @@ pub fn update(app: &mut Model, message: Message) {
         }
         Message::SendNetworkMessage(msg) => {
             app.network_manager.send_message(msg);
+        }
+        Message::Log(msg) => {
+            app.logs.push(msg);
         }
         _ => {}
     }
