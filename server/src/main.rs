@@ -45,7 +45,7 @@ pub async fn run() -> Result<()> {
             let username = line.split("username:").collect::<Vec<&str>>()[1]
                 .trim()
                 .to_string();
-            let user_id = addr.ip().to_string();
+            let user_id = addr.to_string();
             let user = User {
                 name: username.clone(),
                 _id: user_id.clone(),
@@ -53,7 +53,7 @@ pub async fn run() -> Result<()> {
             user_map_clone.lock().unwrap().insert(user_id.clone(), user);
             println!("{} connected", username);
 
-            let success_message = "Registration Successful\n";
+            let success_message = format!("Welcome to the chat, {username}!\n",);
             writer.write_all(success_message.as_bytes()).await.unwrap();
             line.clear();
 
