@@ -7,22 +7,22 @@ use tui_input::backend::crossterm::EventHandler;
 
 use crate::{model::model::ActiveTab, InputMode, Message, Model};
 
-pub fn update(app: &mut Model, message: Message) {
+pub fn update(model: &mut Model, message: Message) {
     match message {
-        Message::Key(key) => match app.input_mode {
+        Message::Key(key) => match model.input_mode {
             InputMode::Normal => match key.code {
                 Char('q') => {
-                    if let Err(e) = app.message_tx.send(Message::Quit) {
+                    if let Err(e) = model.message_tx.send(Message::Quit) {
                         error!("Failed to send quit message: {}", e)
                     }
                 }
                 KeyCode::Enter => {
-                    if app.active_tab == ActiveTab::Chat {
-                        app.input_mode = InputMode::Editing;
+                    if model.active_tab == ActiveTab::Chat || !model.is_user_registered {
+                        model.input_mode = InputMode::Editing;
                     }
                 }
                 KeyCode::Tab => {
-                    app.active_tab = match app.active_tab {
+                    model.active_tab = match model.active_tab {
                         ActiveTab::Chat => ActiveTab::Logs,
                         ActiveTab::Logs => ActiveTab::Chat,
                     }
@@ -31,29 +31,40 @@ pub fn update(app: &mut Model, message: Message) {
             },
             InputMode::Editing => match key.code {
                 KeyCode::Enter => {
-                    let msg = app.input.value().to_string();
-                    if let Err(e) = app.message_tx.send(Message::SendNetworkMessage(msg)) {
-                        error!("Failed to send message: {}", e)
+                    if model.is_user_registered {
+                        let msg = model.input.value().to_string();
+                        if let Err(e) = model.message_tx.send(Message::SendNetworkMessage(msg)) {
+                            error!("Failed to send message: {}", e)
+                        }
+                        model.input.reset();
+                    } else {
+                        let username = format!("username:{}", model.input.value().to_string());
+                        if let Err(e) = model.message_tx.send(Message::RegisterUser(username)) {
+                            error!("Failed to send register message: {}", e)
+                        }
                     }
-
-                    app.input.reset();
                 }
                 KeyCode::Esc => {
-                    app.input_mode = InputMode::Normal;
+                    model.input_mode = InputMode::Normal;
                 }
                 _ => {
-                    app.input.handle_event(&Event::Key(key));
+                    model.input.handle_event(&Event::Key(key));
                 }
             },
         },
+        Message::RegisterUser(username) => {
+            model.network_manager.send_message(username);
+            model.is_user_registered = true;
+            model.input.reset();
+        }
         Message::ReceivedNetworkMessage(msg) => {
-            app.messages.push(msg);
+            model.messages.push(msg);
         }
         Message::SendNetworkMessage(msg) => {
-            app.network_manager.send_message(msg);
+            model.network_manager.send_message(msg);
         }
         Message::Log(msg) => {
-            app.logs.push(msg);
+            model.logs.push(msg);
         }
         _ => {}
     }

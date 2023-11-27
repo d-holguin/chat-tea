@@ -34,9 +34,10 @@ pub struct Model<'a> {
     pub network_manager: NetworkManager,
     pub active_tab: ActiveTab,
     pub logs: Vec<ListItem<'a>>,
+    pub is_user_registered: bool,
 }
 
-impl <'a>Model<'a> {
+impl<'a> Model<'a> {
     pub fn new(tui: &Tui, network_manager: NetworkManager) -> Self {
         Self {
             message_tx: tui.event_tx.clone(),
@@ -47,6 +48,7 @@ impl <'a>Model<'a> {
             network_manager,
             active_tab: ActiveTab::Chat,
             logs: Vec::new(),
+            is_user_registered: false,
         }
     }
 

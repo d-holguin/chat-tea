@@ -24,6 +24,7 @@ pub enum Message {
     ReceivedNetworkMessage(String),
     SendNetworkMessage(String),
     Log(ListItem<'static>),
+    RegisterUser(String),
 }
 
 pub struct Tui {
