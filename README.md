@@ -1,0 +1,1 @@
+![Usage Example](https://github.com/d-holguin/chat_tea/blob/main/example_images/chat_tea_demo.gif)
