@@ -1,4 +1,4 @@
-use color_eyre::eyre::Result;
+use anyhow::Result;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::{
     event::{KeyEvent, KeyEventKind},
