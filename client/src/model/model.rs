@@ -1,8 +1,7 @@
-use color_eyre::eyre::Result;
 use ratatui::widgets::ListItem;
 use tui_input::Input;
 
-use crate::{update, view, FpsCounter, Message, NetworkManager, Tui};
+use crate::{FpsCounter, Message, NetworkManager, Tui};
 
 #[derive(PartialEq, Eq)]
 pub enum InputMode {
@@ -43,48 +42,12 @@ impl<'a> Model<'a> {
             message_tx: tui.event_tx.clone(),
             fps_counter: FpsCounter::new(),
             input: Input::default(),
-            input_mode: InputMode::Normal,
+            input_mode: InputMode::Editing,
             messages: Vec::new(),
             network_manager,
             active_tab: ActiveTab::Chat,
             logs: Vec::new(),
             is_user_registered: false,
         }
-    }
-
-    pub async fn start(mut self, mut tui: Tui) -> Result<()> {
-        tui.enter()?;
-        let mut should_exit = false;
-        loop {
-            tokio::select! {
-                Some(message) = tui.next() => {
-                    match message {
-                        Message::Render => {
-                            // Update FPS counter
-                            self.fps_counter.tick();
-                            // Handle the render event
-                            tui.terminal.draw(|f| {
-                                view(f, &self);
-                            })?;
-                        },
-                        Message::Quit => {
-                            should_exit = true;
-                        },
-                        message => {
-                            update(&mut self, message);
-                        }
-                    }
-                },
-                Some(network_msg) = self.network_manager.get_incoming_messages().recv() => {
-                    update(&mut self, Message::ReceivedNetworkMessage(network_msg));
-                },
-            }
-            if should_exit {
-                break;
-            }
-        }
-
-        tui.exit()?;
-        Ok(())
     }
 }

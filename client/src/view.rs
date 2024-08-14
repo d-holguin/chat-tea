@@ -1,4 +1,4 @@
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Tabs};
@@ -9,18 +9,19 @@ use crate::{InputMode, Model};
 
 pub fn view(frame: &mut Frame<'_>, model: &Model) {
     if model.is_user_registered {
-        render_app_view(frame, model, frame.size());
+        render_app_view(frame, model, frame.area());
     } else {
-        render_register_view(frame, model, frame.size());
+        render_register_view(frame, model, frame.area());
     }
 }
 
 fn render_register_view(frame: &mut Frame<'_>, model: &Model, area: Rect) {
+
     let register_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1), // Title
-            Constraint::Min(3),    // User input
+            Constraint::Max(3),    // User input
             Constraint::Min(1),    // keybindings
         ])
         .split(area);
@@ -57,10 +58,9 @@ fn render_register_view(frame: &mut Frame<'_>, model: &Model, area: Rect) {
 
     // Set cursor position if in editing mode
     if let InputMode::Editing = model.input_mode {
-        frame.set_cursor(
-            inner_input_area.x + model.input.visual_cursor() as u16,
-            inner_input_area.y,
-        );
+        let cursor_pos = Position::new(inner_input_area.x + model.input.visual_cursor() as u16, inner_input_area.y);
+        frame.set_cursor_position(cursor_pos);
+
     }
 
     let keybindings = match model.input_mode {
@@ -160,8 +160,6 @@ fn render_chat_view(frame: &mut Frame<'_>, model: &Model, area: Rect) {
         ])
         .split(area);
 
-    // Render chat content with a border
-
     // messages
     let messages: Vec<ListItem> = model
         .messages
@@ -202,15 +200,14 @@ fn render_chat_view(frame: &mut Frame<'_>, model: &Model, area: Rect) {
 
     // Set cursor position if in editing mode
     if let InputMode::Editing = model.input_mode {
-        frame.set_cursor(
+        let cursor_position = Position::new(
             inner_input_area.x + ((model.input.visual_cursor()).max(scroll) - scroll) as u16,
-            inner_input_area.y,
-        );
+            inner_input_area.y);
+        frame.set_cursor_position(cursor_position);
     }
 }
 
 fn render_logs_view(frame: &mut Frame<'_>, model: &Model, area: Rect) {
     let logs = List::new(model.logs.clone()).block(Block::default().borders(Borders::ALL));
-
     frame.render_widget(logs, area);
 }
