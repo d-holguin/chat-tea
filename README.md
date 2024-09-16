@@ -12,6 +12,8 @@ This project uses an Elm-like architecture, centralizing application logic aroun
 
 The core of ChatTea's UI lies in its non-blocking asynchronous render loop. This design ensures that the UI remains responsive and doesn't freeze during network operations or other processes.
 
+## See https://github.com/d-holguin/async-ratatui for a simplier, cleaner structure. 
+
 ## Elm-like Architecture
 
 ### The Message Enum
